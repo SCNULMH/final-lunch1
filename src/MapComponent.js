@@ -1,6 +1,20 @@
 import React, { useEffect } from 'react';
 
-const MapComponent = ({ mapLoaded, restaurants, mapCenter }) => {
+const MapComponent = ({ mapLoaded, restaurants, mapCenter, radius }) => {
+  // 원 추가 함수
+  const addCircle = (map, position) => {
+    const circle = new window.kakao.maps.Circle({
+      center: position,
+      radius: radius, // 반경 사용
+      strokeWeight: 2,
+      strokeColor: '#75B8FA',
+      strokeOpacity: 0.7,
+      fillColor: '#CFE7FF',
+      fillOpacity: 0.5,
+    });
+    circle.setMap(map);
+  };
+
   useEffect(() => {
     if (mapLoaded && window.kakao) {
       const container = document.getElementById('map');
@@ -20,8 +34,11 @@ const MapComponent = ({ mapLoaded, restaurants, mapCenter }) => {
         });
         marker.setMap(map);
       });
+
+      // 원 추가
+      addCircle(map, new window.kakao.maps.LatLng(mapCenter.lat, mapCenter.lng));
     }
-  }, [mapLoaded, mapCenter, restaurants]);
+  }, [mapLoaded, mapCenter, restaurants, radius]); // radius 추가
 
   return <div id="map" style={{ width: '100%', height: '400px' }}></div>;
 };

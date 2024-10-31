@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import MapComponent from './MapComponent';
 import RestaurantList from './RestaurantList';
+import RadiusInput from './RadiusInput';
 import './styles.css';
 
 const App = () => {
+  const [radius, setRadius] = useState(2000);
   const [address, setAddress] = useState('');
   const [restaurants, setRestaurants] = useState([]);
   const [count, setCount] = useState(0);
@@ -12,13 +14,13 @@ const App = () => {
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapCenter, setMapCenter] = useState({ lat: 34.9687735, lng: 127.4802359 });
-  const [searchResults, setSearchResults] = useState([]); // 검색 결과 상태 추가
+  const [searchResults, setSearchResults] = useState([]);
 
   const REST_API_KEY = '25d26859dae2a8cb671074b910e16912';
   const JAVASCRIPT_API_KEY = '51120fdc1dd2ae273ccd643e7a301c77';
 
   const fetchAddressData = async (query) => {
-    const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}`;
+    const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(query)}`; // 주소 검색으로 변경
     try {
       const response = await fetch(url, {
         headers: { Authorization: `KakaoAK ${REST_API_KEY}` },
@@ -30,20 +32,18 @@ const App = () => {
 
       const data = await response.json();
       if (data.documents && data.documents.length > 0) {
-        setSearchResults(data.documents); // 검색 결과 설정
+        setSearchResults(data.documents);
       } else {
         alert("검색 결과가 없습니다.");
-        setSearchResults([]);
       }
     } catch (error) {
       console.error("주소 검색 중 오류 발생:", error);
       alert("주소 검색 중 오류가 발생했습니다.");
-      setSearchResults([]);
     }
   };
 
   const fetchNearbyRestaurants = async (x, y) => {
-    const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=식당&x=${x}&y=${y}&radius=2000`;
+    const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=식당&x=${x}&y=${y}&radius=${radius}`;
 
     try {
       const response = await fetch(url, {
@@ -67,14 +67,19 @@ const App = () => {
   };
 
   const handleSearch = async () => {
-    await fetchAddressData(address); // 주소 검색
+    if (!address) {
+      alert("주소를 입력해 주세요.");
+      return;
+    }
+
+    await fetchAddressData(address); // 주소를 검색
   };
 
   const handleSelectAddress = (result) => {
-    setAddress(result.place_name); // 선택한 주소를 입력 필드에 표시
-    setMapCenter({ lat: parseFloat(result.y), lng: parseFloat(result.x) }); // 지도 중심 업데이트
+    setAddress(result.address_name); // 선택한 주소로 설정
+    setMapCenter({ lat: parseFloat(result.y), lng: parseFloat(result.x) }); // 지도 중심 설정
     fetchNearbyRestaurants(result.x, result.y); // 근처 식당 검색
-    setSearchResults([]); // 검색 결과 목록 초기화
+    setSearchResults([]); // 검색 결과 초기화
   };
 
   const handleSelectRestaurant = (restaurant) => {
@@ -102,7 +107,9 @@ const App = () => {
       .slice(0, count || randomRestaurants.length);
 
     setRestaurants(randomSelection);
-    setMapCenter({ lat: parseFloat(randomSelection[0].y), lng: parseFloat(randomSelection[0].x) });
+    if (randomSelection.length > 0) {
+      setMapCenter({ lat: parseFloat(randomSelection[0].y), lng: parseFloat(randomSelection[0].x) });
+    }
   };
 
   const handleLocationClick = async () => {
@@ -134,6 +141,7 @@ const App = () => {
   return (
     <div className="container">
       <h1>식당 추천 앱</h1>
+      <RadiusInput setRadius={setRadius} />
       <input
         type="text"
         placeholder="주소 또는 건물명 입력"
@@ -146,13 +154,13 @@ const App = () => {
         <div className="scrollable-list">
           {searchResults.map((result, index) => (
             <div key={index} onClick={() => handleSelectAddress(result)}>
-              {result.place_name} ({result.address_name})
+              {result.address_name} ({result.place_name})
             </div>
           ))}
         </div>
       )}
 
-      <MapComponent mapLoaded={mapLoaded} mapCenter={mapCenter} restaurants={restaurants} />
+      <MapComponent mapLoaded={mapLoaded} mapCenter={mapCenter} restaurants={restaurants} radius={radius} />
       <RestaurantList restaurants={restaurants} onSelect={handleSelectRestaurant} />
 
       <div style={{ textAlign: 'center', margin: '10px 0' }}>
@@ -163,8 +171,8 @@ const App = () => {
         <input
           type="number"
           placeholder="추천 개수"
-          value={count}
-          onChange={(e) => setCount(Number(e.target.value))}
+          value={count || ''} // count가 0일 때는 빈 문자열로 설정
+          onChange={(e) => setCount(Number(e.target.value) || 0)} // Number로 변환하고, falsy 값일 경우 0으로 설정
         />
         <button style={{ width: '210px' }} onClick={handleSpin}>랜덤 추천</button>
       </div>
@@ -174,13 +182,13 @@ const App = () => {
           type="text"
           placeholder="추천할 카테고리 (예: 한식)"
           value={includedCategory}
-          onChange={(e) => setIncludedCategory(e.target.value)}
+          onChange={(e) => setIncludedCategory(e.target.value || '')} // 빈 문자열 처리
         />
         <input
           type="text"
           placeholder="제외할 카테고리 (쉼표로 구분)"
           value={excludedCategory}
-          onChange={(e) => setExcludedCategory(e.target.value)}
+          onChange={(e) => setExcludedCategory(e.target.value || '')} // 빈 문자열 처리
         />
       </div>
     </div>
