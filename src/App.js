@@ -20,25 +20,45 @@ const App = () => {
   const JAVASCRIPT_API_KEY = '51120fdc1dd2ae273ccd643e7a301c77';
 
   const fetchAddressData = async (query) => {
-    const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(query)}`; // 주소 검색으로 변경
-    try {
-      const response = await fetch(url, {
-        headers: { Authorization: `KakaoAK ${REST_API_KEY}` },
-      });
+    const addressUrl = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(query)}`;
+    const keywordUrl = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}&category_group_code=AT4`;
 
-      if (!response.ok) {
-        throw new Error(`주소 검색 실패: ${response.status} ${response.statusText}`);
+    try {
+      const [addressResponse, keywordResponse] = await Promise.all([
+        fetch(addressUrl, { headers: { Authorization: `KakaoAK ${REST_API_KEY}` } }),
+        fetch(keywordUrl, { headers: { Authorization: `KakaoAK ${REST_API_KEY}` } }),
+      ]);
+
+      if (!addressResponse.ok || !keywordResponse.ok) {
+        throw new Error(`검색 실패: ${addressResponse.status} ${addressResponse.statusText}`);
       }
 
-      const data = await response.json();
-      if (data.documents && data.documents.length > 0) {
-        setSearchResults(data.documents);
+      const addressData = await addressResponse.json();
+      const keywordData = await keywordResponse.json();
+
+      const combinedResults = [
+        ...(addressData.documents || []),
+        ...(keywordData.documents || [])
+      ];
+
+      // 결과가 없을 때 fallback 검색
+      if (combinedResults.length === 0) {
+        const fallbackKeywordUrl = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}`;
+        const fallbackResponse = await fetch(fallbackKeywordUrl, {
+          headers: { Authorization: `KakaoAK ${REST_API_KEY}` },
+        });
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          setSearchResults(fallbackData.documents || []);
+        } else {
+          alert("검색 결과가 없습니다.");
+        }
       } else {
-        alert("검색 결과가 없습니다.");
+        setSearchResults(combinedResults);
       }
     } catch (error) {
-      console.error("주소 검색 중 오류 발생:", error);
-      alert("주소 검색 중 오류가 발생했습니다.");
+      console.error("검색 중 오류 발생:", error);
+      alert("검색 중 오류가 발생했습니다.");
     }
   };
 
@@ -71,12 +91,11 @@ const App = () => {
       alert("주소를 입력해 주세요.");
       return;
     }
-
-    await fetchAddressData(address); // 주소를 검색
+    await fetchAddressData(address); // 주소 및 건물 검색 실행
   };
 
   const handleSelectAddress = (result) => {
-    setAddress(result.address_name); // 선택한 주소로 설정
+    setAddress(result.address_name); // 선택한 주소 설정
     setMapCenter({ lat: parseFloat(result.y), lng: parseFloat(result.x) }); // 지도 중심 설정
     fetchNearbyRestaurants(result.x, result.y); // 근처 식당 검색
     setSearchResults([]); // 검색 결과 초기화
