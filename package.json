@@ -11,7 +11,7 @@
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },
-  "homepage": "https://github.com/SCNULMH/lunch-master",
+  "homepage": "https://SCNULMH.github.io/lunch-master",
   "scripts": {
     "start": "react-scripts start",
     "predeploy": "npm run build",
